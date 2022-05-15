@@ -1,18 +1,28 @@
 /** @format */
 
 import * as Joi from 'joi';
-import { AnySchema } from 'joi';
-// import { ObjectSchema, Schema } from 'joi';
+import { AlternativesSchema, Schema, WhenSchemaOptions } from 'joi';
 
 declare module 'joi' {
   /**
    * Generic Schema helper
    */
 
-  type ExtendedAnyKeys = 'allow' | 'default' | 'exist' | 'optional' | 'required' | 'valid';
+  type ExtendedAnyKeys = 'allow' | 'default' | 'exist' | 'optional' | 'required' | 'valid' | 'when';
   type OmitExtendedAnyKeys<T> = Omit<T, ExtendedAnyKeys>;
 
-  interface AnySchemaHelper<ValueType, Optional = true> {
+  type ExtendedWhenOptions<IsT, ThenT, OtherwiseT> = {
+    is: IsT;
+    then?: ThenT;
+    otherwise?: OtherwiseT;
+  };
+
+  type ExtendedWhenShemaOptions<ThenT, OtherwiseT> = {
+    then?: ThenT;
+    otherwise?: OtherwiseT;
+  };
+
+  interface AnySchemaHelper<ValueType, Optional = true, Parent = never> {
     allow<T>(
       ...values: T[]
     ): this extends AnySchemaHelper<infer V, infer O> ? AnySchemaHelper<V | T, O> : never;
@@ -26,6 +36,33 @@ declare module 'joi' {
     optional(): AnySchemaHelper<ValueType>;
     required(): AnySchemaHelper<ValueType, false>;
 
+    /**
+     * Converts the type into an alternatives type where the conditions are merged into the type definition where:
+     */
+    // when(ref: string, options: WhenOptions): AlternativesSchema;
+    // when(ref: Schema, options: WhenSchemaOptions): AlternativesSchema;
+
+    // TODO: most likely wrong implementation, docs are not clear about how it suppose to work
+    when<T extends GenericSchema, ThenT, OtherwiseT>(
+      key: T,
+      options: ExtendedWhenShemaOptions<ThenT, OtherwiseT>
+    ): T extends AnySchemaHelper<infer V1, infer O1>
+      ? ValueType extends V1
+        ? ThenT extends AnySchemaHelper<infer V2, infer O2>
+          ? V2 extends any // trick so if we don't have new type just transfer old one, could be done with extra param
+            ? AnySchemaHelper<ValueType, O2> // always transfer new required op, can be done with extra param
+            : AnySchemaHelper<V2, O2>
+          : never
+        : OtherwiseT extends AnySchemaHelper<infer V2, infer O2>
+        ? AnySchemaHelper<V2, O2>
+        : never
+      : never;
+
+    // TODO: hard to type
+    // I don't need it so skip it, as well docs are not clear about how ti works, most likely
+    // it should be only object related
+    when(ref: any, options: any): this;
+
     valid<T extends ValueType>(
       ...values: T[]
     ): this extends AnySchemaHelper<infer V, infer O> ? AnySchemaHelper<T, O> : never;
@@ -38,8 +75,8 @@ declare module 'joi' {
    *  Primitive Schemas
    */
 
-  interface ExtendedAnySchema<O = true>
-    extends AnySchemaHelper<any, O>,
+  interface ExtendedAnySchema<T = any, O = true>
+    extends AnySchemaHelper<T, O>,
       OmitExtendedAnyKeys<AnySchema> {}
 
   interface ExtendedStringSchema<O = true>
@@ -160,52 +197,16 @@ declare module 'joi' {
       : never;
   }
 
-  // export interface BoxObjectSchema<N extends BoxSchema> extends ObjectSchema {
-  //   keys<T extends ExtendedSchemaMap>(
-  //     schema: T
-  //   ): this extends BoxObjectSchema<infer B>
-  //     ? BoxObjectSchema<BoxIntersection<B, extractMap<T>>>
-  //     : never;
-  //   keys(schema?: SchemaMap): this;
-  //
-  //   append<T extends ExtendedSchemaMap>(
-  //     schema: T
-  //   ): this extends BoxObjectSchema<infer B>
-  //     ? BoxObjectSchema<BoxIntersection<B, extractMap<T>>>
-  //     : never;
-  //   append(schema?: SchemaMap): this;
-  //
-  //   //   // TODO: janusz correct this
-  //   //   // pattern<S extends ExtendedStringSchema, T extends mappedSchema>(
-  //   //   //   pattern: S,
-  //   //   //   schema: T
-  //   //   // ): this extends BoxObjectSchema<infer B>
-  //   //   //   ? BoxObjectSchema<BoxIntersection<B, extractMap<{ [key in extractType<S>]: T }>>>
-  //   //   //   : never;
-  //   pattern<T extends mappedSchema>(
-  //     pattern: RegExp,
-  //     schema: T
-  //   ): this extends BoxObjectSchema<infer B>
-  //     ? BoxObjectSchema<BoxIntersection<B, extractMap<{ [key: string]: T }>>>
-  //     : never;
-  //
-  //   pattern(pattern: RegExp | SchemaLike, schema: SchemaLike): this;
-  // }
-
   /**
    * Alternatives: extraction decorated schema
    */
+  // interface ExtendedAlternativeSchema<V, O>
+  //   extends AnySchemaHelper<V, O>,
+  //     Omit<OmitExtendedAnyKeys<AlternativesSchema>, 'keys' | 'append' | 'pattern'> {}
+
   // export interface BoxAlternativesSchema<N extends BoxSchema> extends AlternativesSchema {
   //   __schemaTypeLiteral: 'BoxAlternativesSchema';
   //
-  //   allow<T>(
-  //     ...values: T[]
-  //   ): this extends BoxAlternativesSchema<infer B> ? BoxAlternativesSchema<BoxUnion<B, T>> : never;
-  //   allow<T>(
-  //     values: T[]
-  //   ): this extends BoxAlternativesSchema<infer B> ? BoxAlternativesSchema<BoxUnion<B, T>> : never;
-  //   allow(...values: any[]): this;
-  //   allow(values: any[]): this;
   //
   //   try<T extends mappedSchema[]>(
   //     ...values: T
@@ -225,19 +226,6 @@ declare module 'joi' {
   //
   //   try(...types: SchemaLike[]): this;
   //   try(types: SchemaLike[]): this;
-  //
-  //   required(): this extends BoxAlternativesSchema<infer B>
-  //     ? BoxAlternativesSchema<BoxReq<B, true>>
-  //     : never;
-  //   required(): this;
-  //   exist(): this extends BoxAlternativesSchema<infer B>
-  //     ? BoxAlternativesSchema<BoxReq<B, true>>
-  //     : never;
-  //   exist(): this;
-  //   optional(): this extends BoxAlternativesSchema<infer B>
-  //     ? BoxAlternativesSchema<BoxReq<B, false>>
-  //     : never;
-  //   optional(): this;
   //
   //   when<
   //     R,
@@ -263,6 +251,10 @@ declare module 'joi' {
    *  Methods
    */
 
+  export function exist(): ExtendedAnySchema<any, false>;
+  export function required(): ExtendedAnySchema<any, false>;
+  export function not<T>(): ExtendedAnySchema<Exclude<any, T>, false>;
+
   export function any(): ExtendedAnySchema;
   export function string(): ExtendedStringSchema;
   export function number(): ExtendedNumberSchema;
@@ -274,6 +266,7 @@ declare module 'joi' {
   export function object<T extends ObjectSchemaArgument>(
     schema?: T
   ): ExtendedObjectSchema<ResolveObjectTypes<T>>;
+
   /**
    * Allow extend() to use Joi types by default
    */
