@@ -11,6 +11,6 @@ type DesiredType = string | undefined;
 type ExtractedType = Joi.pullType<typeof schema>;
 type Type = CommonPartType<DesiredType, ExtractedType>;
 
-let v: Type = 'string';
+let v: ExtractedType = 'string';
 v = undefined;
 // v = null;

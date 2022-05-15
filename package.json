@@ -6,7 +6,7 @@
   "scripts": {
     "prepare": "rimraf dist && tsc",
     "build": "tsc --build ",
-    "watch": "tsc --watch -p ./tsconfig-tests.json"
+    "watch": "tsc --watch --noEmit -p ./tsconfig-tests.json"
   },
   "repository": {
     "type": "git",
@@ -27,6 +27,7 @@
   "devDependencies": {
     "prettier": "^2.6.2",
     "rimraf": "^3.0.2",
+    "ts-essentials": "^9.1.2",
     "typescript": "^4.6.4"
   },
   "peerDependencies": {
