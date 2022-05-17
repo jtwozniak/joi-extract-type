@@ -1,15 +1,16 @@
 {
-  "name": "joi-extract-type",
-  "version": "15.0.8",
+  "name": "joi-pull-type",
+  "version": "13.0.0",
   "description": "Provides native type extraction from Joi schemas for Typescript",
   "main": "dist/index.js",
   "scripts": {
     "prepare": "rimraf dist && tsc",
-    "test": "tsc --build ./tsconfig.json"
+    "build": "tsc --build ",
+    "watch": "tsc --watch --noEmit -p ./tsconfig-tests.json"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TCMiranda/joi-extract-type.git"
+    "url": "git+https://github.com/jtwozniak/joi-extract-type.git"
   },
   "keywords": [
     "Joi",
@@ -17,21 +18,23 @@
     "Types",
     "Extraction"
   ],
-  "author": "Tiago de Carvalho Miranda",
+  "author": "Janusz Wozniak, based on Tiago de Carvalho Miranda",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/TCMiranda/joi-extract-type/issues"
+    "url": "https://github.com/jtwozniak/joi-extract-type/issues"
   },
-  "homepage": "https://github.com/TCMiranda/joi-extract-type#readme",
+  "homepage": "https://github.com/jtwozniak/joi-extract-type#readme",
   "devDependencies": {
-    "typescript": "^3.9.6",
-    "rimraf": "^3.0.2"
+    "prettier": "^2.6.2",
+    "rimraf": "^3.0.2",
+    "ts-essentials": "^9.1.2",
+    "typescript": "^4.6.4"
   },
   "peerDependencies": {
-    "@hapi/joi": "~15"
+    "joi": "~13"
   },
   "dependencies": {
-    "@hapi/joi": "~15",
-    "@types/hapi__joi": "~15"
+    "@types/joi": "~13",
+    "joi": "~13"
   }
 }
