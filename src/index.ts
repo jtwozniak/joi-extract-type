@@ -19,20 +19,16 @@ declare module 'joi' {
     else: T3;
   };
 
-  /**
-   * To rewrite
-   */
-
-  type ExtendedWhenOptions<IsT, ThenT, OtherwiseT> = {
-    is: IsT;
-    then?: ThenT;
-    otherwise?: OtherwiseT;
+  type ExtendedWhenOptions<T1, T2, T3> = {
+    is: T1;
+    then: T2;
+    otherwise: T3;
   };
 
-  type ExtendedWhenSchemaOptions<ThenT, OtherwiseT> = {
-    then?: ThenT;
-    otherwise?: OtherwiseT;
-  };
+  // type ExtendedWhenSchemaOptions<ThenT, OtherwiseT> = {
+  //   then?: ThenT;
+  //   otherwise?: OtherwiseT;
+  // };
 
   /**
    * Generic Schema helper
@@ -69,28 +65,30 @@ declare module 'joi' {
     // when(ref: Schema, options: WhenSchemaOptions): AlternativesSchema;
 
     // TODO: most likely wrong implementation, docs are not clear about how it suppose to work
-    when<T extends GenericSchema, ThenT, OtherwiseT>(
-      key: T,
-      options: ExtendedWhenSchemaOptions<ThenT, OtherwiseT>
-    ): T extends AnySchemaHelper<infer V1>
-      ? ValueType extends V1
-        ? ThenT extends AnySchemaHelper<infer V2>
-          ? V2 extends any // trick so if we don't have new type just transfer old one, could be done with extra param
-            ? AnySchemaHelper<ValueType> // always transfer new required op, can be done with extra param
-            : AnySchemaHelper<V2>
-          : never
-        : OtherwiseT extends AnySchemaHelper<infer V2>
-        ? AnySchemaHelper<V2>
-        : never
-      : never;
+    // when<T extends GenericSchema, ThenT, OtherwiseT>(
+    //   key: T,
+    //   options: ExtendedWhenSchemaOptions<ThenT, OtherwiseT>
+    // ): T extends AnySchemaHelper<infer V1>
+    //   ? ValueType extends V1
+    //     ? ThenT extends AnySchemaHelper<infer V2>
+    //       ? V2 extends any // trick so if we don't have new type just transfer old one, could be done with extra param
+    //         ? AnySchemaHelper<ValueType> // always transfer new required op, can be done with extra param
+    //         : AnySchemaHelper<V2>
+    //       : never
+    //     : OtherwiseT extends AnySchemaHelper<infer V2>
+    //     ? AnySchemaHelper<V2>
+    //     : never
+    //   : never;
 
-    // TODO: hard to type
-    // I don't need it so skip it, as well docs are not clear about how ti works, most likely
-    // it should be only object related
-    when<Key extends string, IsT, KeyIsT, ThenT, ElseT>(
+    // when<Key extends string, T1, T2, T3>(
+    //   key: Key,
+    //   options: ExtendedWhenOptions<T1, T2, T3>
+    // ): AnySchemaHelper<pullType<T3>>;
+
+    when<Key extends string, T1, T2, T3>(
       key: Key,
-      options: ExtendedWhenOptions<IsT, ThenT, ElseT>
-    ): AnySchemaHelper<WhenType<Key, IsT, ThenT, ElseT>>;
+      options: ExtendedWhenOptions<T1, T2, T3>
+    ): AnySchemaHelper<WhenType<Key, pullType<T1>, pullType<T2>, pullType<T3>>>; // when type has to be resolved in parent context;
 
     valid<T extends ValueType[]>(
       ...values: T
