@@ -2,15 +2,12 @@
 
 import * as Joi from 'joi';
 import '../../index';
-import { CommonPartType } from '../copareTypes';
 
-// default will set type back to optional
-// as the validation will provide value
 const schema = Joi.boolean();
-type DesiredType = boolean | undefined;
-type ExtractedType = Joi.pullType<typeof schema>;
-type Type = CommonPartType<DesiredType, ExtractedType>;
+type Type = Joi.pullType<typeof schema>;
 
 let v: Type = true;
 v = undefined;
-// v = null;
+
+// @ts-expect-error
+v = null;

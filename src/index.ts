@@ -2,18 +2,37 @@
 
 import * as Joi from 'joi';
 import { AlternativesSchema, Schema, WhenSchemaOptions } from 'joi';
+import { Primitive } from 'ts-essentials';
+
+// useful for union type casting
+type PrimitiveNonUndefined = Exclude<Primitive, undefined>;
 
 declare module 'joi' {
   /**
    * When helpers
    */
 
-  // type WhenType<T1, T2 extends GenericSchema, T2 extends GenericSchema> = {
-  //   key: string;
-  //   isKey: string;
-  //   is: T1
-  //
-  // }
+  type WhenType<Key extends string, T1, T2, T3> = {
+    key: Key;
+    is: T1;
+    then: T2;
+    else: T3;
+  };
+
+  /**
+   * To rewrite
+   */
+
+  type ExtendedWhenOptions<IsT, ThenT, OtherwiseT> = {
+    is: IsT;
+    then?: ThenT;
+    otherwise?: OtherwiseT;
+  };
+
+  type ExtendedWhenSchemaOptions<ThenT, OtherwiseT> = {
+    then?: ThenT;
+    otherwise?: OtherwiseT;
+  };
 
   /**
    * Generic Schema helper
@@ -22,22 +41,12 @@ declare module 'joi' {
   type ExtendedAnyKeys = 'allow' | 'default' | 'exist' | 'optional' | 'required' | 'valid' | 'when';
   type OmitExtendedAnyKeys<T> = Omit<T, ExtendedAnyKeys>;
 
-  type ExtendedWhenOptions<IsT, ThenT, OtherwiseT> = {
-    is: IsT;
-    then?: ThenT;
-    otherwise?: OtherwiseT;
-  };
-
-  type ExtendedWhenShemaOptions<ThenT, OtherwiseT> = {
-    then?: ThenT;
-    otherwise?: OtherwiseT;
-  };
-
   interface AnySchemaHelper<ValueType extends any> {
-    allow<T>(
-      ...values: T[]
-    ): this extends AnySchemaHelper<infer V> ? AnySchemaHelper<V | T> : never;
-    allow<T>(values: T[]): this extends AnySchemaHelper<infer V> ? AnySchemaHelper<V | T> : never;
+    allow<T extends PrimitiveNonUndefined[]>(...values: T): AnySchemaHelper<ValueType | T[number]>;
+
+    allow<T extends PrimitiveNonUndefined>(
+      values: T[]
+    ): AnySchemaHelper<ValueType | typeof values[number]>; // typeof values - removes tuple
 
     default<T extends ValueType>(
       value: T,
@@ -62,7 +71,7 @@ declare module 'joi' {
     // TODO: most likely wrong implementation, docs are not clear about how it suppose to work
     when<T extends GenericSchema, ThenT, OtherwiseT>(
       key: T,
-      options: ExtendedWhenShemaOptions<ThenT, OtherwiseT>
+      options: ExtendedWhenSchemaOptions<ThenT, OtherwiseT>
     ): T extends AnySchemaHelper<infer V1>
       ? ValueType extends V1
         ? ThenT extends AnySchemaHelper<infer V2>
@@ -78,17 +87,18 @@ declare module 'joi' {
     // TODO: hard to type
     // I don't need it so skip it, as well docs are not clear about how ti works, most likely
     // it should be only object related
-    when<IsT, ThenT, OtherwiseT>(
-      key: string,
-      options: ExtendedWhenOptions<IsT, ThenT, OtherwiseT>
-    ): this;
+    when<Key extends string, IsT, KeyIsT, ThenT, ElseT>(
+      key: Key,
+      options: ExtendedWhenOptions<IsT, ThenT, ElseT>
+    ): AnySchemaHelper<WhenType<Key, IsT, ThenT, ElseT>>;
+
+    valid<T extends ValueType[]>(
+      ...values: T
+    ): AnySchemaHelper<ValueType extends undefined ? T[number] | undefined : T[number]>;
 
     valid<T extends ValueType>(
-      ...values: T[]
-    ): this extends AnySchemaHelper<infer V> ? AnySchemaHelper<T> : never;
-    valid<T extends ValueType>(
       values: T[]
-    ): this extends AnySchemaHelper<infer V> ? AnySchemaHelper<T> : never;
+    ): ValueType extends undefined ? typeof values[number] | undefined : typeof values[number];
   }
 
   /**
@@ -134,17 +144,15 @@ declare module 'joi' {
       Omit<OmitExtendedAnyKeys<ArraySchema>, 'items'> {
     items<T extends GenericSchema[], VT = ResolveArrayTypes<TupleToUnion<T>[]>>(
       ...values: T
-    ): ExtendedArraySchema<ValueType extends undefined ? VT | undefined : VT>;
-    // ): this extends ExtendedArraySchema<infer V, infer O>
-    //   ? ExtendedArraySchema<ResolveArrayTypes<TupleToUnion<T>[]>, O>
-    //   : never;
+    ): ExtendedArraySchema<
+      ValueType extends undefined
+        ? ResolveToRequired<T[number]>[] | undefined
+        : ResolveToRequired<T[number]>[]
+    >;
 
     items<T extends GenericSchema[], VT = ResolveArrayTypes<TupleToUnion<T>[]>>(
       values: T
     ): ExtendedArraySchema<ValueType extends undefined ? VT | undefined : VT>;
-    // ): this extends ExtendedArraySchema<infer V, infer O>
-    //   ? ExtendedArraySchema<ResolveArrayTypes<TupleToUnion<T>[]>, O>
-    //   : never;
 
     // TODO: add ordered - simply not resolve tuple
   }

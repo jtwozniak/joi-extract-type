@@ -2,14 +2,12 @@
 
 import * as Joi from 'joi';
 import '../../index';
-import { CommonPartType } from '../copareTypes';
 
 const schema = Joi.number().required();
-type DesiredType = number;
-type ExtractedType = Joi.pullType<typeof schema>;
-type Type = CommonPartType<DesiredType, ExtractedType>;
+type Type = Joi.pullType<typeof schema>;
 
 let v: Type = 2;
 
-// v = undefined;
+// @ts-expect-error
+v = undefined;
 
