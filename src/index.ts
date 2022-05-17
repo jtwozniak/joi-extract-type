@@ -163,13 +163,10 @@ declare module 'joi' {
 
   // TS bug prevented me of using common parametrized type. I had to split it into two
   // GetOptionalKeys andGetRequiredKeys types - with 'extends false' instead of 'extends OptionalCase'
-  export type GetOptionalKeys<T extends ObjectSchemaArgument> = {
-    [K in keyof T]: T[K] extends AnySchemaHelper<infer V>
-      ? V extends undefined
-        ? K
-        : never
-      : never;
-  }[keyof T];
+  export type GetOptionalKeys<T extends ObjectSchemaArgument> = Exclude<
+    keyof T,
+    GetRequiredKeys<T>
+  >;
 
   export type GetRequiredKeys<T extends ObjectSchemaArgument> = {
     [K in keyof T]: T[K] extends AnySchemaHelper<infer V>
