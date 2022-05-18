@@ -19,16 +19,20 @@ declare module 'joi' {
     else: T3;
   };
 
-  type ExtendedWhenOptions<T1, T2, T3> = {
-    is: T1;
-    then: T2;
-    otherwise: T3;
+  /**
+   * To rewrite
+   */
+
+  type ExtendedWhenOptions<IsT, ThenT, OtherwiseT> = {
+    is: IsT;
+    then?: ThenT;
+    otherwise?: OtherwiseT;
   };
 
-  // type ExtendedWhenSchemaOptions<ThenT, OtherwiseT> = {
-  //   then?: ThenT;
-  //   otherwise?: OtherwiseT;
-  // };
+  type ExtendedWhenSchemaOptions<ThenT, OtherwiseT> = {
+    then?: ThenT;
+    otherwise?: OtherwiseT;
+  };
 
   /**
    * Generic Schema helper
@@ -54,7 +58,7 @@ declare module 'joi' {
       ValueType extends undefined ? Exclude<ValueType, undefined> : ValueType
     >;
     optional(): AnySchemaHelper<ValueType | undefined>;
-    required(): AnySchemaHelper<ValueType extends undefined ? never : ValueType>;
+    required(): AnySchemaHelper<Exclude<ValueType, undefined>>;
 
     /**
      * Converts the type into an alternatives type where the conditions are merged into the type definition where:
@@ -63,30 +67,28 @@ declare module 'joi' {
     // when(ref: Schema, options: WhenSchemaOptions): AlternativesSchema;
 
     // TODO: most likely wrong implementation, docs are not clear about how it suppose to work
-    // when<T extends GenericSchema, ThenT, OtherwiseT>(
-    //   key: T,
-    //   options: ExtendedWhenSchemaOptions<ThenT, OtherwiseT>
-    // ): T extends AnySchemaHelper<infer V1>
-    //   ? ValueType extends V1
-    //     ? ThenT extends AnySchemaHelper<infer V2>
-    //       ? V2 extends any // trick so if we don't have new type just transfer old one, could be done with extra param
-    //         ? AnySchemaHelper<ValueType> // always transfer new required op, can be done with extra param
-    //         : AnySchemaHelper<V2>
-    //       : never
-    //     : OtherwiseT extends AnySchemaHelper<infer V2>
-    //     ? AnySchemaHelper<V2>
-    //     : never
-    //   : never;
+    when<T extends GenericSchema, ThenT, OtherwiseT>(
+      key: T,
+      options: ExtendedWhenSchemaOptions<ThenT, OtherwiseT>
+    ): T extends AnySchemaHelper<infer V1>
+      ? ValueType extends V1
+        ? ThenT extends AnySchemaHelper<infer V2>
+          ? V2 extends any // trick so if we don't have new type just transfer old one, could be done with extra param
+            ? AnySchemaHelper<ValueType> // always transfer new required op, can be done with extra param
+            : AnySchemaHelper<V2>
+          : never
+        : OtherwiseT extends AnySchemaHelper<infer V2>
+        ? AnySchemaHelper<V2>
+        : never
+      : never;
 
-    // when<Key extends string, T1, T2, T3>(
-    //   key: Key,
-    //   options: ExtendedWhenOptions<T1, T2, T3>
-    // ): AnySchemaHelper<pullType<T3>>;
-
+    // TODO: hard to type
+    // I don't need it so skip it, as well docs are not clear about how ti works, most likely
+    // it should be only object related
     when<Key extends string, T1, T2, T3>(
       key: Key,
       options: ExtendedWhenOptions<T1, T2, T3>
-    ): AnySchemaHelper<WhenType<Key, pullType<T1>, pullType<T2>, pullType<T3>>>; // when type has to be resolved in parent context;
+    ): AnySchemaHelper<WhenType<Key, pullType<T1>, pullType<T2>, pullType<T3>>>;
 
     valid<T extends ValueType[]>(
       ...values: T
@@ -268,8 +270,8 @@ declare module 'joi' {
    *  Methods
    */
 
-  export function exist(): ExtendedAnySchema<Exclude<any, undefined>>;
-  export function required(): ExtendedAnySchema<Exclude<any, undefined>>;
+  export function exist(): ExtendedAnySchema<{}>;
+  export function required(): ExtendedAnySchema<{}>;
   export function not(): ExtendedAnySchema<never>;
 
   export function any(): ExtendedAnySchema;
@@ -337,9 +339,9 @@ declare module 'joi' {
   type ObjectSchemaArgument = Record<string, ObjectOrArraySchema>;
 
   type pullType<T> = T extends AnySchemaHelper<infer V | undefined>
-    ? V extends AnySchemaHelper<undefined>
-      ? V | undefined
-      : V
+    ? T extends AnySchemaHelper<infer V>
+      ? V
+      : V | undefined
     : T;
 
   // TODO: add
