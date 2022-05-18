@@ -11,3 +11,10 @@ let v: Type = 2;
 // @ts-expect-error
 v = undefined;
 
+
+const schema2 = Joi.required();
+type Type2 = Joi.pullType<typeof schema2>;
+let v2: Type2 = new Date();
+
+// @ts-expect-error
+v2 = undefined;
