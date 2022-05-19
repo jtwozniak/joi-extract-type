@@ -11,7 +11,7 @@ const schema = Joi.object({
   c: Joi.number(),
   d: Joi.any().when('a', { is: 2, then: Joi.number(), otherwise: Joi.date() }),
   e: Joi.any().when('b', { is: 'z', then: Joi.number(), otherwise: Joi.date() }),
-  f: Joi.any().when('b', { is: 'y', then: Joi.number(), otherwise: Joi.date() }),
+  // f: Joi.any().when('b', { is: 'y', then: Joi.number(), otherwise: Joi.date() }),
   // g: Joi.any().when('b', { is: 'y', then: Joi.number(), otherwise: Joi.date() }),
 }).required();
 
@@ -41,8 +41,8 @@ const tupleTest2: TupleTest2 = [
 
 ///////////////
 
-type GenericKeyMaybeWhen = [string, any];
 type GenericWhen = Joi.WhenType<string, any, any, any>;
+type GenericKeyMaybeWhen = [string, any];
 
 type PrimitiveNonUndefined = Exclude<Primitive, undefined>;
 type ResolvePrimitive<T> = T extends PrimitiveNonUndefined ? T : never;
@@ -66,8 +66,12 @@ type ResolveSimple<T, Resolved extends object[], Deep = false> = T extends [
 type ResolveSimpleTest1 = ResolveSimple<['a', number], []>;
 const resolveSimpleTest1: ResolveSimpleTest1 = [{ a: 123 }];
 
-type ResolveSimpleTest2 = ResolveSimple<['a', number], [{ d: string }]>;
-const resolveSimpleTest2: ResolveSimpleTest2 = [{ a: 123, d: '123' }];
+type ResolveSimpleTest2 = ResolveSimple<['a', number], [{ d: string }, { c: boolean }]>;
+const resolveSimpleTest2: ResolveSimpleTest2 = [
+  { a: 123, d: '123' },
+  { a: 321, c: false },
+];
+// const resolveSimpleTest4: ResolveSimpleTest2 = [{ a: 123 }];
 
 type ResolveSimpleTest3 = ResolveSimple<['a', number], [{ c: string }, { d: string }]>;
 const resolveSimpleTest3: ResolveSimpleTest3 = [
@@ -104,27 +108,21 @@ type ResolveComplexSingle<T extends GenericKeyMaybeWhen, A> = T extends [
   ? Key extends keyof A
     ? ResolveKey extends string
       ? [
-          (
-            | Omit<A, Key> & {
-                [P in Key]: ResolvePrimitive<T1>;
-              } & {
-                [P in ResolveKey]: T2;
-              }
-          ),
-          (
-            | Omit<A, Key> & {
-                [P in Key]: ResolvePrimitive<T1>;
-              } & {
-                [P in ResolveKey]: never; // Exclude<any, 2> = any cannot narrow it, so exclude type
-              }
-          ),
-          (
-            | Omit<A, Key> & {
-                [P in Key]: Exclude<A[Key], T1>;
-              } & {
-                [P in ResolveKey]: T3;
-              }
-          )
+          Omit<A, Key> & {
+            [P in Key]: ResolvePrimitive<T1>;
+          } & {
+            [P in ResolveKey]: T2;
+          },
+          Omit<A, Key> & {
+            [P in Key]: ResolvePrimitive<T1>;
+          } & {
+            [P in ResolveKey]: never; // Exclude<any, 2> = any cannot narrow it, so exclude type
+          },
+          Omit<A, Key> & {
+            [P in Key]: Exclude<A[Key], T1>;
+          } & {
+            [P in ResolveKey]: T3;
+          }
         ]
       : [never]
     : [never]
@@ -185,6 +183,10 @@ const resolveComplexTest2: ResolveComplexTest2 = [
   ignore recursive cases
   solve first simple types in one go
   then solve recursively complex cases
+
+  https://github.com/microsoft/TypeScript/issues/47077
+
+  // try to collaps Tuple -> Union -> Tuple
  */
 type ExpandCases<
   T,
@@ -195,7 +197,7 @@ type ExpandCases<
   ? T extends [infer KV, ...infer B]
     ? KV extends [infer Key, infer A]
       ? // ? KV extends [infer Key, infer A]
-        A extends Joi.WhenType<string, infer T1, infer T2, infer T3>
+        A extends GenericWhen
         ? CanResolveComplex<A, Resolved> extends true
           ? KV extends GenericKeyMaybeWhen
             ? ExpandCases<B, ResolveComplex<KV, Resolved>, NotResolved, NotResolvedLength>
@@ -215,160 +217,4 @@ type ResolveWhen<T extends object> = ExpandCases<ObjectKeyValuesToTuple<T>>;
 
 type ResolvedObject = ResolveWhen<Type>;
 
-let finalTest: ResolvedObject = [{}];
-
-//////////////////////// Old
-
-// type MoveHeadToTail<T extends any[]> = T extends [infer A, ...infer B] ? [...B, A] : never;
-//
-// type TupleTest = [number, string, Date];
-// type MoveTuple = MoveHeadToTail<TupleTest>;
-
-// const t: MoveTuple = ['2', new Date(), 2];
-
-// // @ts-expect-error
-// const t: MoveTuple = [2, '2', new Date()];
-// // @ts-expect-error
-// const t: MoveTuple = ['2', new Date(), 2, '2'];
-
-//
-// type TupleToUnionBase<T> =
-//   T extends []
-//     ? never
-//     : (T extends [infer First, ...infer Rest]
-//       ? First //| TupleToUnionBase<Rest>
-//       : never);
-//
-// const t: TupleToUnionBase<ResolvedObject> = {
-//   k: 'b',
-//   v: 123
-// }
-
-// ResolveComplex<B, ResolveComplex<A, Resolved>>:
-//  ExpandCases<B, > :
-// : ResolveSimple<A, Resolved>
-
-// type ResolveUnion<T extends object> = ValueOf<{
-//   [K in keyof T]: { k: K; v: T[K] };
-// }>; // TODO: ['a', WhenType] | ['b', any] | ['c', number] | [d, WhenType] | [e, WhenType] | [f, WhenType]
-//
-// type ResolveUndefinedUnion<T extends object> = Extract<ResolveUnion<T>, { k: string; v: any }>; // remove undefined
-//
-// let ruu: ResolveUndefinedUnion<Type> = ['b', 123];
-//
-// // @ts-expect-error
-// ruu = undefined;
-//
-// ruu = { k: 'c', v: 123 };
-// ruu = { k: 'a', v: { key: 'b', is: 'z', then: 123, else: new Date() } };
-// ruu = { k: 'd', v: { key: 'a', is: 123, then: 123, else: new Date() } };
-//
-// type BuildObject<T extends { k: string; v: any }, OB = {}> = {
-//   [K in T['k']]: Extract<T, { k: K }>['v'] extends Joi.WhenType<
-//     infer K,
-//     infer T1,
-//     infer T2,
-//     infer T3
-//   >
-//     ? never
-//     : Extract<T, { k: K }>['v'];
-// };
-//
-// let o: BuildObject<ResolveUndefinedUnion<Type>> = {
-//
-// };
-
-// type ResolveUnion<T extends object> = {
-//   [K in keyof T]: [K, T[K]];
-// }[keyof T]; // TODO: ['a', WhenType] | ['b', any] | ['c', number] | [d, WhenType] | [e, WhenType] | [f, WhenType]
-
-// TODO if Moved type is in the list of moveTypes fail
-// TODO Reset list each time element is added to object
-// TODO iterate once per line, don't be afraid of the same types
-// TODO 'a' extends 'a' = a, Exclude<'a', 'a'> = never ? - check it, 'a' extends Exclude<any, 'a'> = never, Exclude<Exclude<any, 'a'>, 'a'> = this
-
-// Old tests copy just in case
-
-// pre
-
-// WhenKey - a | d | e | f
-// WhenIsKey - a | b
-// NotAffected = All - WhenKey = b | c
-
-// PRE function
-
-// WhenKey = a | d
-// WhenIsKey = a | b
-// NotAffected = All - WhenKey = b | c
-// Not Affected Object = T
-
-// output T
-
-// First iteration
-// WhenKey = a | d
-// WhenIsKey = a | b
-// NotAffected = All - WhenKey = b | c
-// Not Affected Object = T
-
-// CanSolve = WhenIsKey - WhenKey = b
-// TypesToSolve = [b, [[z, [a, then]] | y]]
-
-// Start types
-// type T = {
-//   b: any
-//   c: any
-// }
-
-//permutation on TypesToSolve
-type T = { b: any; c: any };
-
-// Can ApplyKey = WhenIsKey - WhenKey = b
-
-// we have to have loop
-// DontChange: all Keys except WhenKey, WhenIsKey
-// UnionDriver: 'a' | 'b'
-// UnionReceiver: simple - when = 'c'
-
-// affected simple = simple and wheKeys = 'b'
-// not affected: 'c'
-// affected: 'a' | 'b'
-// toResolve:
-// unresolvable to loop
-// extract [key, is] - these will be our cases
-
-// not affected = 'c'
-// affected = 'b'
-// to resolve = 'a'
-// type ExtractCases
-
-//
-// type SimpleKeys<T extends [string, any]> = Exclude<T, [string, Joi.WhenType<any, any, any, any>]>;
-//
-// type ResolveType<T, U = ResolveUnion<T>, SK = SimpleKeys<U>> = U;
-//
-// type SchemaValueType = ResolveType<Type>;
-
-// type Test111 =
-//   | {
-//       a: any;
-//       b: 1;
-//     }
-//   | {
-//       a: 'a';
-//       b: 2;
-//     }
-//   | {
-//       a: 'a';
-//       b: 3;
-//     };
-//
-// let tett: Test111 = {
-//   a: 'b',
-//   b: 3,
-// };
-
-// }type Resolved = Resolve<Type>
-//
-// let v: Resolved =
-
-// v = undefined;
+let finalTest: ResolvedObject = [{ c: undefined }];
