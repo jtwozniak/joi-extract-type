@@ -12,6 +12,7 @@ const schema = Joi.object({
   d: Joi.any().when('a', { is: 2, then: Joi.number(), otherwise: Joi.date() }),
   e: Joi.any().when('b', { is: 'z', then: Joi.number(), otherwise: Joi.date() }),
   f: Joi.any().when('b', { is: 'y', then: Joi.number(), otherwise: Joi.date() }),
+  // g: Joi.any().when('b', { is: 'y', then: Joi.number(), otherwise: Joi.date() }),
 }).required();
 
 type Type = Joi.pullType<typeof schema>;
@@ -112,6 +113,13 @@ type ResolveComplexSingle<T extends GenericKeyMaybeWhen, A> = T extends [
           ),
           (
             | Omit<A, Key> & {
+                [P in Key]: ResolvePrimitive<T1>;
+              } & {
+                [P in ResolveKey]: never; // Exclude<any, 2> = any cannot narrow it, so exclude type
+              }
+          ),
+          (
+            | Omit<A, Key> & {
                 [P in Key]: Exclude<A[Key], T1>;
               } & {
                 [P in ResolveKey]: T3;
@@ -129,10 +137,15 @@ type ResolveComplexSingle1 = ResolveComplexSingle<
 
 const resolveComplexSingle1: ResolveComplexSingle1 = [
   { a: '123', b: 2 },
+  // @ts-expect-error
+  { a: new Date(), b: 123 },
   { a: new Date(), b: 123 },
 ];
 
 //////
+
+type TT = Exclude<number, 2>;
+const t123: TT = 2;
 
 type ResolveComplex<T extends GenericKeyMaybeWhen, Resolved extends object[]> = Resolved extends [
   infer A,
@@ -140,17 +153,39 @@ type ResolveComplex<T extends GenericKeyMaybeWhen, Resolved extends object[]> = 
 ]
   ? B extends object[]
     ? [...ResolveComplexSingle<T, A>, ...ResolveComplex<T, B>]
-    : never
-  : never;
+    : ResolveComplexSingle<T, A>
+  : Resolved;
 
-// TODO: test me first
-// type ResolveComplexTest1 = ResolveComplex<['a', number ], []>;
-// const resolveComplexTest1: ResolveComplexTest1 = [{ a: 123 }];
+type ResolveComplexTest1 = ResolveComplex<
+  ['a', Joi.WhenType<'b', 2, number, Date>],
+  [{ b: any; c: number }]
+>;
 
-// type ResolveComplexTest = ResolveComplex<{}, []>
+// const resolveComplexTest1: ResolveComplexTest1 = [{ a: 123, b: 2, c: 2 }, { a: new Date(), b: 2, c: 2 }, ];
+const resolveComplexTest1: ResolveComplexTest1 = [
+  { a: 123, b: 2, c: 2 },
+  // @ts-expect-error
+  { a: new Date(), b: 123, c: 2 },
+  { a: new Date(), b: 123, c: 2 },
+];
+
+type ResolveComplexTest2 = ResolveComplex<['a', Joi.WhenType<'b', 2, number, Date>], [{ b: any }]>;
+
+// c is not allowed
+const resolveComplexTest2: ResolveComplexTest2 = [
+  // @ts-expect-error
+  { a: 123, b: 2, c: 2 },
+  // @ts-expect-error
+  { a: new Date(), b: 2 },
+  { a: new Date(), b: 2 },
+];
 
 //////
-
+/*
+  ignore recursive cases
+  solve first simple types in one go
+  then solve recursively complex cases
+ */
 type ExpandCases<
   T,
   Resolved extends object[] = [],
@@ -158,29 +193,29 @@ type ExpandCases<
   NotResolvedLength extends number = 0
 > = T extends GenericKeyMaybeWhen[]
   ? T extends [infer KV, ...infer B]
-    ? KV extends GenericKeyMaybeWhen
-      ? KV extends { k: infer Key; v: infer A }
-        ? A extends Joi.WhenType<string, infer T1, infer T2, infer T3>
-          ? CanResolveComplex<A, Resolved> extends true
-            ? B extends GenericKeyMaybeWhen[]
-              ? ExpandCases<B, ResolveComplex<KV, Resolved>, NotResolved>
-              : never
-            : B extends GenericKeyMaybeWhen[]
-            ? ExpandCases<B, Resolved, [...NotResolved, KV]>
+    ? KV extends [infer Key, infer A]
+      ? // ? KV extends [infer Key, infer A]
+        A extends Joi.WhenType<string, infer T1, infer T2, infer T3>
+        ? CanResolveComplex<A, Resolved> extends true
+          ? KV extends GenericKeyMaybeWhen
+            ? ExpandCases<B, ResolveComplex<KV, Resolved>, NotResolved, NotResolvedLength>
             : never
-          : ExpandCases<B, ResolveSimple<KV, Resolved>, NotResolved>
-        : NotResolved['length'] extends NotResolvedLength // fail stop - after iteration no new dependency was solved
-        ? never
-        : never
+          : // Resolved
+          KV extends GenericKeyMaybeWhen
+          ? ExpandCases<B, Resolved, [...NotResolved, KV], NotResolvedLength>
+          : never
+        : // : Resolved
+          ExpandCases<B, ResolveSimple<KV, Resolved>, NotResolved, NotResolvedLength>
       : never
-    : ExpandCases<NotResolved, Resolved, [], NotResolved['length']>
+    : // : never
+      Resolved // emptied list
   : never;
 
-// type ResolveWhen<T extends object> = ExpandCases<ObjectKeyValuesToTuple<T>>;
-//
-// type ResolvedObject = ResolveWhen<Type>;
+type ResolveWhen<T extends object> = ExpandCases<ObjectKeyValuesToTuple<T>>;
 
-// let final: ResolvedObject = []
+type ResolvedObject = ResolveWhen<Type>;
+
+let finalTest: ResolvedObject = [{}];
 
 //////////////////////// Old
 
