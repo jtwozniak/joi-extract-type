@@ -5,12 +5,12 @@ import '../../index';
 import { Primitive, ValueOf } from 'ts-essentials';
 
 const schema = Joi.object({
-  a: Joi.any().when('b', { is: 'z', then: Joi.number(), otherwise: Joi.date() }),
+  // a: Joi.any().when('b', { is: 'z', then: Joi.number(), otherwise: Joi.date() }),
   // .when('c', { is: Joi.number().min(10), then: Joi.forbidden() }),
-  b: Joi.any(),
-  c: Joi.number(),
-  d: Joi.any().when('a', { is: 2, then: Joi.number(), otherwise: Joi.date() }),
-  e: Joi.any().when('b', { is: 'z', then: Joi.number(), otherwise: Joi.date() }),
+  b: Joi.string(),
+  c: Joi.number().required(),
+  // d: Joi.any().when('a', { is: 2, then: Joi.number(), otherwise: Joi.date() }),
+  // e: Joi.any().when('b', { is: 'z', then: Joi.number(), otherwise: Joi.date() }),
   // f: Joi.any().when('b', { is: 'y', then: Joi.number(), otherwise: Joi.date() }),
   // g: Joi.any().when('b', { is: 'y', then: Joi.number(), otherwise: Joi.date() }),
 }).required();
@@ -42,6 +42,7 @@ const tupleTest2: TupleTest2 = [
 ///////////////
 
 type GenericWhen = Joi.WhenType<string, any, any, any>;
+type GenericKeyWhen = [string, GenericWhen];
 type GenericKeyMaybeWhen = [string, any];
 
 type PrimitiveNonUndefined = Exclude<Primitive, undefined>;
@@ -49,11 +50,11 @@ type ResolvePrimitive<T> = T extends PrimitiveNonUndefined ? T : never;
 
 //////
 
-type ResolveSimpleSingle<ResolveKey, T> = { [P in ResolveKey & string]: T };
-type ResolveSimple<T, Resolved extends object[], Deep = false> = T extends [
-  infer ResolveKey,
-  infer T1
-]
+type ResolveSimpleSingle<ResolveKey, T> = T extends undefined
+  ? { [P in ResolveKey & string]?: T }
+  : { [P in ResolveKey & string]-?: Exclude<T, undefined> };
+
+type ResolveSimple<T, Resolved, Deep = false> = T extends [infer ResolveKey, infer T1]
   ? Resolved extends [infer A, ...infer B]
     ? B extends object[]
       ? [A & ResolveSimpleSingle<ResolveKey, T1>, ...ResolveSimple<T, B, true>]
@@ -78,6 +79,9 @@ const resolveSimpleTest3: ResolveSimpleTest3 = [
   { a: 123, c: '123' },
   { a: 123, d: '123' },
 ];
+
+type ResolveSimpleTest4 = ResolveSimple<['a', number | undefined], []>;
+const resolveSimpleTest4: ResolveSimpleTest1 = [{ a: 123 }, {}];
 
 //////
 
@@ -143,78 +147,118 @@ const resolveComplexSingle1: ResolveComplexSingle1 = [
 //////
 
 type TT = Exclude<number, 2>;
-const t123: TT = 2;
+const t123: TT = 2; // this is not working
 
-type ResolveComplex<T extends GenericKeyMaybeWhen, Resolved extends object[]> = Resolved extends [
-  infer A,
-  ...infer B
-]
+type TupleToUnion<T extends any[]> = Exclude<T[number], 'any'>;
+
+// three loops, remove the same types, for performance reasons
+type FilterIfInUnion<
+  T extends object[],
+  ResolvedUnion,
+  Resolved extends object[] = []
+> = T extends [infer A, ...infer B]
   ? B extends object[]
-    ? [...ResolveComplexSingle<T, A>, ...ResolveComplex<T, B>]
-    : ResolveComplexSingle<T, A>
+    ? A extends object
+      ? A extends ResolvedUnion
+        ? FilterIfInUnion<B, ResolvedUnion, Resolved>
+        : FilterIfInUnion<B, ResolvedUnion | A, [A, ...Resolved]>
+      : never
+    : never
   : Resolved;
+
+type SimpleUnion = { a: number } | { b: string } | { c: Date };
+
+type UnionSimplify1 = FilterIfInUnion<[{ a: Date }], SimpleUnion>;
+const unionSimplify1: UnionSimplify1 = [{ a: new Date() }];
+
+type UnionSimplify2 = FilterIfInUnion<[{ a: number }], SimpleUnion>;
+const unionSimplify2: UnionSimplify2 = [];
+
+type UnionSimplify3 = FilterIfInUnion<[{ a: number }, { a: Date }], SimpleUnion>;
+const unionSimplify3: UnionSimplify3 = [{ a: new Date() }];
+
+//////////
+
+type ResolveComplex<
+  T extends GenericKeyWhen,
+  ResolvedOld extends object[],
+  ResolvedNew extends object[] = []
+> = ResolvedOld extends [infer A, ...infer B]
+  ? B extends object[]
+    ? ResolveComplex<
+        T,
+        B,
+        [...ResolvedNew, ...FilterIfInUnion<ResolveComplexSingle<T, A>, TupleToUnion<ResolvedNew>>]
+      >
+    : FilterIfInUnion<ResolveComplexSingle<T, A>, TupleToUnion<ResolvedNew>>
+  : ResolvedNew;
 
 type ResolveComplexTest1 = ResolveComplex<
   ['a', Joi.WhenType<'b', 2, number, Date>],
   [{ b: any; c: number }]
 >;
 
-// const resolveComplexTest1: ResolveComplexTest1 = [{ a: 123, b: 2, c: 2 }, { a: new Date(), b: 2, c: 2 }, ];
-const resolveComplexTest1: ResolveComplexTest1 = [
-  { a: 123, b: 2, c: 2 },
-  // @ts-expect-error
-  { a: new Date(), b: 123, c: 2 },
-  { a: new Date(), b: 123, c: 2 },
-];
+type Union = TupleToUnion<ResolveComplexTest1>;
 
-type ResolveComplexTest2 = ResolveComplex<['a', Joi.WhenType<'b', 2, number, Date>], [{ b: any }]>;
+const resolveComplexTest1: Union = { a: 123, b: 2, c: 2 };
+const resolveComplexTest22: Union = { a: new Date(), b: 123, c: 2 };
+// @ts-expect-error
+const resolveComplexTest3: Union = { a: 123, b: 2, c: 2, twojstary: 2 };
+// @ts-expect-error
+const resolveComplexTest4: Union = 123;
+// @ts-expect-error
+const resolveComplexTest5: Union = {};
 
-// c is not allowed
+////////////
+// simplify case!!
+type ResolveComplexTest2 = ResolveComplex<
+  ['a', Joi.WhenType<'b', 2, number, Date>],
+  [{ b: any }, { b: any }] // extra copy should be reduced
+>;
+
 const resolveComplexTest2: ResolveComplexTest2 = [
-  // @ts-expect-error
-  { a: 123, b: 2, c: 2 },
+  { a: 123, b: 2 },
   // @ts-expect-error
   { a: new Date(), b: 2 },
   { a: new Date(), b: 2 },
 ];
 
 //////
-/*
-  ignore recursive cases
-  solve first simple types in one go
-  then solve recursively complex cases
 
-  https://github.com/microsoft/TypeScript/issues/47077
-
-  // try to collaps Tuple -> Union -> Tuple
- */
 type ExpandCases<
   T,
   Resolved extends object[] = [],
   NotResolved extends GenericKeyMaybeWhen[] = [],
   NotResolvedLength extends number = 0
 > = T extends GenericKeyMaybeWhen[]
-  ? T extends [infer KV, ...infer B]
+  ? T extends [infer KV, ...infer TTable]
     ? KV extends [infer Key, infer A]
-      ? // ? KV extends [infer Key, infer A]
-        A extends GenericWhen
-        ? CanResolveComplex<A, Resolved> extends true
-          ? KV extends GenericKeyMaybeWhen
-            ? ExpandCases<B, ResolveComplex<KV, Resolved>, NotResolved, NotResolvedLength>
+      ? A extends GenericWhen // if comples
+        ? never
+        : /*
+        CanResolveComplex<A, Resolved> extends true
+          ? KV extends GenericKeyWhen
+            ? ExpandCases<TTable, ResolveComplex<KV, Resolved>, NotResolved, NotResolvedLength>
             : never
           : // Resolved
           KV extends GenericKeyMaybeWhen
-          ? ExpandCases<B, Resolved, [...NotResolved, KV], NotResolvedLength>
+          ? ExpandCases<TTable, Resolved, [...NotResolved, KV], NotResolvedLength>
           : never
-        : // : Resolved
-          ExpandCases<B, ResolveSimple<KV, Resolved>, NotResolved, NotResolvedLength>
+
+         */
+          ExpandCases<TTable, ResolveSimple<KV, Resolved>, NotResolved, NotResolvedLength>
       : never
     : // : never
       Resolved // emptied list
   : never;
 
 type ResolveWhen<T extends object> = ExpandCases<ObjectKeyValuesToTuple<T>>;
+// type ResolveWhenTuple<T extend s> = TupleToUnion<T>
 
 type ResolvedObject = ResolveWhen<Type>;
 
-let finalTest: ResolvedObject = [{ c: undefined }];
+let finalTest: ResolvedObject = [
+  {
+    d: 123,
+  },
+];
