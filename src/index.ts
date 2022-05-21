@@ -282,6 +282,9 @@ declare module 'joi' {
   export function func(): ExtendedFunctionSchema;
   export function array(): ExtendedArraySchema;
 
+  export function valid<T extends Primitive[]>(...values: T): ExtendedAnySchema<T[number]>;
+  export function valid<T extends Primitive[]>(values: T[]): ExtendedAnySchema<typeof values[number]>;
+
   export function object<T extends ObjectSchemaArgument>(
     schema?: T
   ): ExtendedObjectSchema<ResolveObjectTypes<T> | undefined>;
