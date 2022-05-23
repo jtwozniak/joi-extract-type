@@ -30,3 +30,18 @@ v2 = 4;
 v2 = 8;
 // @ts-expect-error
 v2 = undefined;
+
+const schema3 = Joi.number().valid([2, 3, 4, 8]);
+type Type3 = Joi.pullType<typeof schema3>;
+
+let v1: Type3 = 2;
+v1 = 3;
+v1 = 4;
+v1 = 8;
+v1 = undefined;
+
+// @ts-expect-error
+v1 = 10;
+
+// @ts-expect-error
+v1 = '10';

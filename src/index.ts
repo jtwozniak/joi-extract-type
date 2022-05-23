@@ -1,7 +1,7 @@
 /** @format */
 
 import * as Joi from 'joi';
-import { AlternativesSchema, Schema, WhenSchemaOptions } from 'joi';
+import { AlternativesSchema, GenericSchema, Schema, WhenSchemaOptions } from 'joi';
 import { Primitive } from 'ts-essentials';
 
 // useful for union type casting
@@ -38,7 +38,16 @@ declare module 'joi' {
    * Generic Schema helper
    */
 
-  type ExtendedAnyKeys = 'allow' | 'default' | 'exist' | 'optional' | 'required' | 'valid' | 'when';
+  type ExtendedAnyKeys =
+    | 'allow'
+    | 'default'
+    | 'exist'
+    | 'optional'
+    | 'required'
+    | 'valid'
+    | 'when'
+    | 'min'
+    | 'max';
   type OmitExtendedAnyKeys<T> = Omit<T, ExtendedAnyKeys>;
 
   interface AnySchemaHelper<ValueType extends any> {
@@ -93,7 +102,7 @@ declare module 'joi' {
     when<Key extends string, T1, T2, T3>(
       key: Key,
       options: ExtendedWhenOptions<T1, T2, T3>
-    ): AnySchemaHelper<WhenType<Key, pullType<T1>, pullType<T2>, pullType<T3>>>;
+    ): AnySchemaHelper<pullType<T2> | pullType<T3>>;
 
     valid<T extends ValueType[]>(
       ...values: T
@@ -101,7 +110,11 @@ declare module 'joi' {
 
     valid<T extends ValueType>(
       values: T[]
-    ): ValueType extends undefined ? typeof values[number] | undefined : typeof values[number];
+    ): AnySchemaHelper<
+      ValueType extends undefined ? typeof values[number] | undefined : typeof values[number]
+    >;
+    max<T extends number>(n: T): this;
+    min<T extends number>(n: T): this;
   }
 
   /**
@@ -145,7 +158,7 @@ declare module 'joi' {
   interface ExtendedArraySchema<ValueType = any[] | undefined>
     extends AnySchemaHelper<ValueType>,
       Omit<OmitExtendedAnyKeys<ArraySchema>, 'items'> {
-    items<T extends GenericSchema[], VT = ResolveArrayTypes<TupleToUnion<T>[]>>(
+    items<T extends GenericSchema[], VT = ResolveArrayTypes<T>>(
       ...values: T
     ): ExtendedArraySchema<
       ValueType extends undefined
@@ -153,7 +166,7 @@ declare module 'joi' {
         : ResolveToRequired<T[number]>[]
     >;
 
-    items<T extends GenericSchema[], VT = ResolveArrayTypes<TupleToUnion<T>[]>>(
+    items<T extends GenericSchema[], VT = ResolveArrayTypes<T>>(
       values: T
     ): ExtendedArraySchema<ValueType extends undefined ? VT | undefined : VT>;
 
@@ -221,55 +234,16 @@ declare module 'joi' {
       : never;
   }
 
-  /**
-   * Alternatives: extraction decorated schema
-   */
-  // interface ExtendedAlternativeSchema<V, O>
-  //   extends AnySchemaHelper<V, O>,
-  //     Omit<OmitExtendedAnyKeys<AlternativesSchema>, 'keys' | 'append' | 'pattern'> {}
-
-  // export interface BoxAlternativesSchema<N extends BoxSchema> extends AlternativesSchema {
-  //   __schemaTypeLiteral: 'BoxAlternativesSchema';
-  //
-  //
-  //   try<T extends mappedSchema[]>(
-  //     ...values: T
-  //   ): this extends BoxAlternativesSchema<infer O>
-  //     ? O extends Box<infer oT, infer oR>
-  //       ? BoxAlternativesSchema<BoxType<O, oT | extractType<T>>>
-  //       : BoxAlternativesSchema<Box<extractType<T>, false>>
-  //     : BoxAlternativesSchema<Box<extractType<T>, false>>;
-  //
-  //   try<T extends mappedSchema[]>(
-  //     values: T
-  //   ): this extends BoxAlternativesSchema<infer O>
-  //     ? O extends Box<infer oT, infer oR>
-  //       ? BoxAlternativesSchema<BoxType<O, oT | extractType<T>>>
-  //       : BoxAlternativesSchema<Box<extractType<T>, false>>
-  //     : BoxAlternativesSchema<Box<extractType<T>, false>>;
-  //
-  //   try(...types: SchemaLike[]): this;
-  //   try(types: SchemaLike[]): this;
-  //
-  //   when<
-  //     R,
-  //     T1 extends mappedSchema,
-  //     T2 extends mappedSchema,
-  //     T extends { then: T1; otherwise: T2 }
-  //   >(
-  //     ref: R,
-  //     defs: T
-  //   ): this extends BoxAlternativesSchema<infer O>
-  //     ? O extends Box<infer oT, infer oR>
-  //       ? BoxAlternativesSchema<
-  //           BoxType<O, oT | extractType<T['then']> | extractType<T['otherwise']>>
-  //         >
-  //       : BoxAlternativesSchema<Box<extractType<T['then']> | extractType<T['otherwise']>, false>>
-  //     : BoxAlternativesSchema<Box<extractType<T['then']> | extractType<T['otherwise']>, false>>;
-  //
-  //   when(ref: string | Reference, options: WhenOptions): this;
-  //   when(ref: Schema, options: WhenSchemaOptions): this;
-  // }
+  interface ExtendedAlternativeSchema<ValueType = never | undefined>
+    extends AnySchemaHelper<ValueType>,
+      Omit<OmitExtendedAnyKeys<AlternativesSchema>, 'try'> {
+    try<T extends GenericSchema[]>(
+      ...values: T
+    ): ExtendedObjectSchema<pullType<ExtendedArraySchema<typeof values>>[number]>;
+    try<T extends GenericSchema[]>(
+      values: T
+    ): ExtendedObjectSchema<pullType<ExtendedArraySchema<typeof values>>[number]>;
+  }
 
   /**
    *  Methods
@@ -287,8 +261,25 @@ declare module 'joi' {
   export function func(): ExtendedFunctionSchema;
   export function array(): ExtendedArraySchema;
 
-  export function valid<T extends Primitive[]>(...values: T): ExtendedAnySchema<T[number]>;
-  export function valid<T extends Primitive[]>(values: T[]): ExtendedAnySchema<typeof values[number]>;
+
+/*
+  valid<T extends ValueType[]>(
+...values: T
+): AnySchemaHelper<ValueType extends undefined ? T[number] | undefined : T[number]>;
+
+  valid<T extends ValueType>(
+    values: T[]
+): AnySchemaHelper<
+    ValueType extends undefined ? typeof values[number] | undefined : typeof values[number]
+    >;
+  */
+
+  export function valid<T extends Primitive[]>(
+    ...values: T
+  ): AnySchemaHelper<T[number]>;
+  export function valid<T extends Primitive[]>(
+    values: T[]
+  ): ExtendedAnySchema<typeof values[number]>;
 
   export function object<T extends ObjectSchemaArgument>(
     schema?: T
@@ -326,21 +317,21 @@ declare module 'joi' {
   //   callback: (err: ValidationError, value: extendsGuard<T, extractType<S>>) => R
   // ): R;
 
-  // export function alternatives<T extends mappedSchema[]>(
-  //   ...alts: T
-  // ): BoxAlternativesSchema<Box<extractType<typeof alts[number]>, false>>;
-  // export function alternatives<T extends mappedSchema[]>(
-  //   alts: T
-  // ): BoxAlternativesSchema<Box<extractType<typeof alts[number]>, false>>;
-  //
-  // export function alt<T extends mappedSchema[]>(
-  //   ...alts: T
-  // ): BoxAlternativesSchema<Box<extractType<typeof alts[number]>, false>>;
-  // export function alt<T extends mappedSchema[]>(
-  //   alts: T
-  // ): BoxAlternativesSchema<Box<extractType<typeof alts[number]>, false>>;
+  export function alternatives<T extends GenericSchema[], VT = ResolveArrayTypes<T>>(
+    ...alternatives: T
+  ): ResolveToRequired<T[number]>;
+  export function alternatives<T extends GenericSchema[], VT = ResolveArrayTypes<T>>(
+    values: T
+  ): VT extends any[] ? VT[number] : never;
 
-  // type MaybeType<V, Optional> = Optional extends false ? V : V | undefined;
+  export function alt<T extends GenericSchema[], VT = ResolveArrayTypes<T>>(
+    ...alternatives: T
+  ): ResolveToRequired<T[number]>;
+  export function alt<T extends GenericSchema[], VT = ResolveArrayTypes<T>>(
+    values: T
+  ): VT extends any[] ? VT[number] : never;
+
+  ///////////////////
 
   type GenericSchema = AnySchemaHelper<any>;
   type ObjectOrArraySchema = GenericSchema; // | GenericSchema[];
