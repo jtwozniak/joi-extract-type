@@ -53,6 +53,11 @@ declare module 'joi' {
       description?: string
     ): AnySchemaHelper<ValueType | undefined>;
 
+    default<T extends () => ValueType>(
+      value: T,
+      description?: string
+    ): AnySchemaHelper<ValueType | undefined>;
+
     // alias of required
     exist(): AnySchemaHelper<
       ValueType extends undefined ? Exclude<ValueType, undefined> : ValueType
