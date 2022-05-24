@@ -1,8 +1,8 @@
 /** @format */
 
 import * as Joi from 'joi';
-import { AlternativesSchema, GenericSchema, Schema, WhenSchemaOptions } from 'joi';
-import { Primitive } from 'ts-essentials';
+// import { Primitive } from 'ts-essentials';
+export declare type Primitive = string | number | boolean | bigint | symbol | undefined | null;
 
 // useful for union type casting
 type PrimitiveNonUndefined = Exclude<Primitive, undefined>;
@@ -11,13 +11,13 @@ declare module 'joi' {
   /**
    * When helpers
    */
-
-  type WhenType<Key extends string, T1, T2, T3> = {
-    key: Key;
-    is: T1;
-    then: T2;
-    else: T3;
-  };
+  //
+  // type WhenType<Key extends string, T1, T2, T3> = {
+  //   key: Key;
+  //   is: T1;
+  //   then: T2;
+  //   else: T3;
+  // };
 
   /**
    * To rewrite
@@ -41,13 +41,14 @@ declare module 'joi' {
   type ExtendedAnyKeys =
     | 'allow'
     | 'default'
+    | 'description'
     | 'exist'
+    | 'max'
+    | 'min'
     | 'optional'
     | 'required'
     | 'valid'
-    | 'when'
-    | 'min'
-    | 'max';
+    | 'when';
   type OmitExtendedAnyKeys<T> = Omit<T, ExtendedAnyKeys>;
 
   interface AnySchemaHelper<ValueType extends any> {
@@ -70,7 +71,7 @@ declare module 'joi' {
     // alias of required
     exist(): AnySchemaHelper<
       ValueType extends undefined ? Exclude<ValueType, undefined> : ValueType
-    >;
+      >;
     optional(): AnySchemaHelper<ValueType | undefined>;
     required(): AnySchemaHelper<Exclude<ValueType, undefined>>;
 
@@ -92,8 +93,8 @@ declare module 'joi' {
             : AnySchemaHelper<V2>
           : never
         : OtherwiseT extends AnySchemaHelper<infer V2>
-        ? AnySchemaHelper<V2>
-        : never
+          ? AnySchemaHelper<V2>
+          : never
       : never;
 
     // TODO: hard to type
@@ -112,36 +113,122 @@ declare module 'joi' {
       values: T[]
     ): AnySchemaHelper<
       ValueType extends undefined ? typeof values[number] | undefined : typeof values[number]
-    >;
-    max<T extends number>(n: T): this;
-    min<T extends number>(n: T): this;
+      >;
+
+    only<T extends ValueType[]>(
+      ...values: T
+    ): AnySchemaHelper<ValueType extends undefined ? T[number] | undefined : T[number]>;
+
+    only<T extends ValueType>(
+      values: T[]
+    ): AnySchemaHelper<
+      ValueType extends undefined ? typeof values[number] | undefined : typeof values[number]
+      >;
+
+    equal<T extends ValueType[]>(
+      ...values: T
+    ): AnySchemaHelper<ValueType extends undefined ? T[number] | undefined : T[number]>;
+
+    equal<T extends ValueType>(
+      values: T[]
+    ): AnySchemaHelper<
+      ValueType extends undefined ? typeof values[number] | undefined : typeof values[number]
+      >;
+
+    /////////
+
+    validate<T>(value: T, options?: ValidationOptions): ValidationResult<T>;
+    validate<T, R>(value: T, callback: (err: ValidationError, value: T) => R): R;
+    validate<T, R>(value: T, options: ValidationOptions, callback: (err: ValidationError, value: T) => R): R;
+
+    bind(): this;
+    invalid(...values: any[]): this;
+    invalid(values: any[]): this;
+    disallow(...values: any[]): this;
+    disallow(values: any[]): this;
+    not(...values: any[]): this;
+    not(values: any[]): this;
+    forbidden(): this;
+    strip(): this;
+    description(desc: string): this;
+    notes(notes: string | string[]): this;
+    tags(notes: string | string[]): this;
+    meta(meta: object): this;
+    example(value: any): this;
+    unit(name: string): this;
+    options(options: ValidationOptions): this;
+    strict(isStrict?: boolean): this;
+    default(value?: any, description?: string): this;
+    concat(schema: this): this;
+    // when(ref: string | Reference, options: WhenOptions): AlternativesSchema;
+    // when(ref: Schema, options: WhenSchemaOptions): AlternativesSchema;
+    label(name: string): this;
+    raw(isRaw?: boolean): this;
+    empty(schema?: SchemaLike): this;
+    error(err: Error | ValidationErrorFunction, options?: any): this;
+    describe(): Description;
   }
 
   /**
    *  Primitive Schemas
    */
 
-  interface ExtendedAnySchema<T = any> extends AnySchemaHelper<T>, OmitExtendedAnyKeys<AnySchema> {}
+  interface ExtendedAnySchema<T = any> extends AnySchemaHelper<T> {}
 
-  interface ExtendedStringSchema
-    extends AnySchemaHelper<string | undefined>,
-      OmitExtendedAnyKeys<StringSchema> {}
+  interface ExtendedStringSchema extends AnySchemaHelper<string | undefined> {
+    insensitive(): this;
+    min(limit: number, encoding?: string): this;
+    min(limit: Reference, encoding?: string): this;
+    max(limit: number, encoding?: string): this;
+    max(limit: Reference, encoding?: string): this;
+    truncate(enabled?: boolean): this;
+    normalize(form?: 'NFC' | 'NFD' | 'NFKC' | 'NFKD'): this;
+    base64(options?: Base64Options): this;
+    creditCard(): this;
+    length(limit: number, encoding?: string): this;
+    length(limit: Reference, encoding?: string): this;
+    regex(pattern: RegExp, options?: string | StringRegexOptions): this;
+    replace(pattern: RegExp, replacement: string): this;
+    replace(pattern: string, replacement: string): this;
+    alphanum(): this;
+    token(): this;
+    email(options?: EmailOptions): this;
+    ip(options?: IpOptions): this;
+    uri(options?: UriOptions): this;
+    dataUri(options?: DataUriOptions): this;
+    guid(options?: GuidOptions): this;
+    uuid(options?: GuidOptions): this;
+    hex(options?: HexOptions): this;
+    hostname(): this;
+    isoDate(): this;
+    lowercase(): this;
+    uppercase(): this;
+    trim(): this;
+  }
 
   interface ExtendedNumberSchema
-    extends AnySchemaHelper<number | undefined>,
-      OmitExtendedAnyKeys<NumberSchema> {}
+    extends AnySchemaHelper<number | undefined>{
+    min(limit: number | Reference): this;
+    max(limit: number | Reference): this;
+    greater(limit: number | Reference): this;
+    less(limit: number | Reference): this;
+    integer(): this;
+    unsafe(enabled?: boolean): this;
+    precision(limit: number): this;
+    multiple(base: number): this;
+    positive(): this;
+    negative(): this;
+    port(): this;
+  }
 
   interface ExtendedBooleanSchema
-    extends AnySchemaHelper<boolean | undefined>,
-      OmitExtendedAnyKeys<BooleanSchema> {}
+    extends AnySchemaHelper<boolean | undefined>{}
 
   interface ExtendedDateSchema
-    extends AnySchemaHelper<Date | undefined>,
-      OmitExtendedAnyKeys<DateSchema> {}
+    extends AnySchemaHelper<Date | undefined> {}
 
   interface ExtendedFunctionSchema
-    extends AnySchemaHelper<Function | undefined>,
-      OmitExtendedAnyKeys<FunctionSchema> {}
+    extends AnySchemaHelper<Function | undefined>{}
 
   /**
    *  Array Schema - ValueType keeps resolved types
@@ -156,33 +243,39 @@ declare module 'joi' {
   };
 
   interface ExtendedArraySchema<ValueType = any[] | undefined>
-    extends AnySchemaHelper<ValueType>,
-      Omit<OmitExtendedAnyKeys<ArraySchema>, 'items'> {
+    extends AnySchemaHelper<ValueType> {
     items<T extends GenericSchema[], VT = ResolveArrayTypes<T>>(
       ...values: T
     ): ExtendedArraySchema<
       ValueType extends undefined
         ? ResolveToRequired<T[number]>[] | undefined
         : ResolveToRequired<T[number]>[]
-    >;
+      >;
 
     items<T extends GenericSchema[], VT = ResolveArrayTypes<T>>(
       values: T
     ): ExtendedArraySchema<ValueType extends undefined ? VT | undefined : VT>;
 
-    // TODO: add ordered - simply not resolve tuple
+    has(schema: SchemaLike): this;
+    sparse(enabled?: any): this;
+    single(enabled?: any): this;
+    ordered(...types: SchemaLike[]): this;
+    ordered(types: SchemaLike[]): this;
+    min(limit: number): this;
+    max(limit: number): this;
+    length(limit: number | Reference): this;
+    unique(comparator?: string, options?: any): this;
+    unique<T = any>(comparator?: (a: T, b: T) => boolean): this;
   }
 
   /**
    * Object: Object Schema
    */
 
-  // TS bug prevented me of using common parametrized type. I had to split it into two
-  // GetOptionalKeys andGetRequiredKeys types - with 'extends false' instead of 'extends OptionalCase'
   export type GetOptionalKeys<T extends ObjectSchemaArgument> = Exclude<
     keyof T,
     GetRequiredKeys<T>
-  >;
+    >;
 
   export type GetRequiredKeys<T extends ObjectSchemaArgument> = {
     [K in keyof T]: T[K] extends AnySchemaHelper<infer V>
@@ -193,7 +286,7 @@ declare module 'joi' {
   }[keyof T];
 
   type OptionalObjectKeys<T, Keys> = {
-    [K in keyof T as Extract<K, Keys>]?: T[K];
+    [K in keyof T as Extract<K, Keys>]?: T[K] | undefined;
   };
 
   type RequiredObjectKeys<T, Keys> = {
@@ -209,11 +302,10 @@ declare module 'joi' {
     R = ResolveObjectValues<T>,
     OptionalKeys = GetOptionalKeys<T>,
     RequiredKeys = GetRequiredKeys<T>
-  > = OptionalObjectKeys<R, OptionalKeys> & RequiredObjectKeys<R, RequiredKeys>;
+    > = OptionalObjectKeys<R, OptionalKeys> & RequiredObjectKeys<R, RequiredKeys>;
 
   interface ExtendedObjectSchema<ValueType = {} | undefined>
-    extends AnySchemaHelper<ValueType>,
-      Omit<OmitExtendedAnyKeys<ObjectSchema>, 'keys' | 'append' | 'pattern'> {
+    extends AnySchemaHelper<ValueType> {
     keys<T extends ObjectSchemaArgument>(
       schema: T
     ): this extends ExtendedObjectSchema<infer V>
@@ -234,9 +326,8 @@ declare module 'joi' {
       : never;
   }
 
-  interface ExtendedAlternativeSchema<ValueType = never | undefined>
-    extends AnySchemaHelper<ValueType>,
-      Omit<OmitExtendedAnyKeys<AlternativesSchema>, 'try'> {
+  interface ExtendedAlternativeSchema<ValueType = undefined>
+    extends AnySchemaHelper<ValueType> {
     try<T extends GenericSchema[]>(
       ...values: T
     ): ExtendedObjectSchema<pullType<ExtendedArraySchema<typeof values>>[number]>;
@@ -261,22 +352,7 @@ declare module 'joi' {
   export function func(): ExtendedFunctionSchema;
   export function array(): ExtendedArraySchema;
 
-
-/*
-  valid<T extends ValueType[]>(
-...values: T
-): AnySchemaHelper<ValueType extends undefined ? T[number] | undefined : T[number]>;
-
-  valid<T extends ValueType>(
-    values: T[]
-): AnySchemaHelper<
-    ValueType extends undefined ? typeof values[number] | undefined : typeof values[number]
-    >;
-  */
-
-  export function valid<T extends Primitive[]>(
-    ...values: T
-  ): AnySchemaHelper<T[number]>;
+  export function valid<T extends Primitive[]>(...values: T): AnySchemaHelper<T[number]>;
   export function valid<T extends Primitive[]>(
     values: T[]
   ): ExtendedAnySchema<typeof values[number]>;
@@ -299,30 +375,30 @@ declare module 'joi' {
   // export function validate<T, S extends mappedSchemaMap>(
   //   value: T,
   //   schema: S
-  // ): ValidationResult<extendsGuard<T, extractType<S>>>;
+  // ): ValidationResult<extendsGuard<T, pullType<S>>>;
   // export function validate<T, S extends mappedSchemaMap>(
   //   value: T,
   //   schema: S,
   //   options: ValidationOptions
-  // ): ValidationResult<extendsGuard<T, extractType<S>>>;
+  // ): ValidationResult<extendsGuard<T, pullType<S>>>;
   // export function validate<T, R, S extends mappedSchemaMap>(
   //   value: T,
   //   schema: S,
   //   options: ValidationOptions,
-  //   callback: (err: ValidationError, value: extendsGuard<T, extractType<S>>) => R
+  //   callback: (err: ValidationError, value: extendsGuard<T, pullType<S>>) => R
   // ): R;
   // export function validate<T, R, S extends mappedSchemaMap>(
   //   value: T,
   //   schema: S,
-  //   callback: (err: ValidationError, value: extendsGuard<T, extractType<S>>) => R
+  //   callback: (err: ValidationError, value: extendsGuard<T, pullType<S>>) => R
   // ): R;
 
   export function alternatives<T extends GenericSchema[], VT = ResolveArrayTypes<T>>(
     ...alternatives: T
-  ): ResolveToRequired<T[number]>;
+  ): ExtendedAlternativeSchema<ResolveToRequired<T[number]>>;
   export function alternatives<T extends GenericSchema[], VT = ResolveArrayTypes<T>>(
     values: T
-  ): VT extends any[] ? VT[number] : never;
+  ): VT extends any[] ? ExtendedAlternativeSchema<VT[number]> : never;
 
   export function alt<T extends GenericSchema[], VT = ResolveArrayTypes<T>>(
     ...alternatives: T
@@ -334,13 +410,13 @@ declare module 'joi' {
   ///////////////////
 
   type GenericSchema = AnySchemaHelper<any>;
-  type ObjectOrArraySchema = GenericSchema; // | GenericSchema[];
+  type ObjectOrArraySchema = GenericSchema | GenericSchema[];
   type ObjectSchemaArgument = Record<string, ObjectOrArraySchema>;
 
-  type pullType<T> = T extends AnySchemaHelper<infer V | undefined>
+  type pullType<T> = T extends AnySchemaHelper<infer V1 | undefined>
     ? T extends AnySchemaHelper<infer V>
       ? V
-      : V | undefined
+      : V1 | undefined
     : T;
 
   // TODO: add

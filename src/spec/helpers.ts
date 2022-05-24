@@ -3,6 +3,13 @@
 import * as Joi from 'joi';
 import '../index';
 
+
+//
+//
+//
+// type Test0 = Joi.GetRequiredKeys<SubjectTest>
+
+
 /*
 
 const schema = Joi.object({

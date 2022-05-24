@@ -15,7 +15,6 @@ v = null;
 // @ts-expect-error
 v = '2';
 
-// @ts-expect-error
 const schema2 = Joi.number().required().default('2');
 
 const schema3 = Joi.date()
