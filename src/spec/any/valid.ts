@@ -45,3 +45,9 @@ v1 = 10;
 
 // @ts-expect-error
 v1 = '10';
+
+const valid = Joi.valid(2).default(2);
+
+type T1 = Joi.pullType<typeof valid>;
+let t1: T1 = undefined;
+t1 = 2;

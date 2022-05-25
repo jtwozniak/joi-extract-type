@@ -13,6 +13,7 @@ type Type = Joi.pullType<typeof schema>;
 
 let v: Type = { test2: 2, test3: 't' };
 v = { test: 1, test2: 2, test3: 'est' };
+// @ts-expect-error
 v = undefined;
 
 // @ts-expect-error
